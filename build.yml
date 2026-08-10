@@ -1,0 +1,91 @@
+name: Build Signed AAB for Google Play
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+
+    steps:
+      # ---- 0) سحب المصدر ----
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ---- 1) تثبيت JDK 17 (مطلوب لـ AGP 8.x) ----
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ---- 2) تثبيت Gradle 8.2 مباشرة ----
+      # المشروع لا يحوي gradlew.jar داخله، لذا نثبّت Gradle رسمياً.
+      - name: Install Gradle 8.2
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          sudo mv gradle-8.2 /opt/gradle
+          sudo ln -sf /opt/gradle/bin/gradle /usr/local/bin/gradle
+          rm gradle-8.2-bin.zip
+          gradle --version
+
+      # ---- 3) إذا أضفت أسرار Keystore → جهّز keystore.properties ----
+      - name: Configure keystore from secrets
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
+          {
+            echo "storeFile=keystore.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+          echo "✅ Keystore configured — signed release will be produced."
+
+      # ---- 4) كاش Gradle لتوفير 3 دقائق تقريباً ----
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ---- 5) بناء Signed Release AAB (المطلوب لـ Google Play) ----
+      - name: Build signed release AAB
+        run: |
+          gradle :app:bundleRelease --no-daemon --stacktrace
+
+      # ---- 6) التحقق من أن .aab تم إنتاجه فعلاً ----
+      - name: Verify AAB
+        run: |
+          test -f app/build/outputs/bundle/release/app-release.aab \
+            || (echo "❌ app-release.aab not found" && exit 1)
+          ls -lh app/build/outputs/bundle/release/app-release.aab
+          echo "---- internal structure (first 20 entries) ----"
+          unzip -l app/build/outputs/bundle/release/app-release.aab | head -20
+
+      # ---- 7) رفع الـ AAB المُوقَّع كـ Artifact لتحميله ----
+      - name: Upload signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: CalculatorVault-signed-aab-${{ github.sha }}
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
