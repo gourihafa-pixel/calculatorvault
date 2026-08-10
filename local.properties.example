@@ -1,0 +1,10 @@
+# Path to Android SDK on your computer.
+# Android Studio usually creates this automatically — you only need to fill it
+# manually if you build from a plain terminal without opening Android Studio first.
+
+# Example locations:
+#   Windows: C\:\\Users\\YOURNAME\\AppData\\Local\\Android\\Sdk
+#   macOS:   /Users/YOURNAME/Library/Android/sdk
+#   Linux:   /home/YOURNAME/Android/Sdk
+
+sdk.dir=/path/to/Android/Sdk

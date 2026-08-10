@@ -1,0 +1,23 @@
+# Build outputs
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+*/build/
+/app/build/
+/captures
+
+# Keystore — NEVER commit the actual key
+keystore.properties
+*.jks
+*.keystore
+/*.jks
+
+# Logs
+*.log
+
+# Android Studio
+.cxx/
+/.kotlin/
