@@ -1,11 +1,6 @@
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-}
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
-// Read signing config from keystore.properties if it exists.
-// This file is injected by the GitHub Actions workflow from secrets.
-// NEVER commit keystore.properties or *.jks to the repository.
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 def hasKeystore = false
@@ -22,7 +17,6 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace 'com.calcvault.app'
     compileSdk 34
-
     defaultConfig {
         applicationId "com.calcvault.app"
         minSdk 24
@@ -30,50 +24,35 @@ android {
         versionCode 1
         versionName "1.0"
     }
-
     signingConfigs {
         release {
             if (hasKeystore) {
                 storeFile rootProject.file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
-                keyPassword keystypeCheck(keystoreProperties['keyPassword'])
+                keyPassword keystoreProperties['keyPassword']
             }
         }
     }
-
     buildTypes {
         release {
             if (hasKeystore) {
                 signingConfig signingConfigs.named('release').get()
             } else {
-                // No keystore available yet — produced APK/AAB will be unsigned.
                 signingConfig signingConfigs.named('debug')
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            minifyEnabled false
-        }
+        debug { minifyEnabled false }
     }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-
-    buildFeatures {
-        viewBinding true
-    }
+    kotlinOptions { jvmTarget = '1.8' }
+    buildFeatures { viewBinding true }
 }
-
-// Helper to keep keyPassword typed as String (avoid any IDE warning).
-String keystypeCheck(def v) { v == null ? '' : v.toString() }
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
